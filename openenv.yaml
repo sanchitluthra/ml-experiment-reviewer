@@ -1,0 +1,21 @@
+name: ml-experiment-env
+version: "1.0.0"
+description: "ML Experiment Reviewer Environment"
+
+server:
+  host: "0.0.0.0"
+  port: 7860
+  workers: 4
+
+environment:
+  class: MLExperimentEnvironment
+  module: server.environment
+  supports_concurrent_sessions: true
+
+tasks:
+  - name: easy
+    description: "Detect overfitting/underfitting/good_fit"
+  - name: medium
+    description: "Full experiment diagnosis including model, data quality and preprocessing"
+  - name: hard
+    description: "Find problematic hyperparameters and suggest fixes"
