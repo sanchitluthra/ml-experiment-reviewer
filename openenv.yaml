@@ -4,7 +4,7 @@ description: "ML Experiment Reviewer Environment"
 
 server:
   host: "0.0.0.0"
-  port: 7860
+  port: 8000
   workers: 4
 
 environment:
