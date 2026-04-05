@@ -19,8 +19,16 @@ from server.grader import grade
 
 
 class MLExperimentEnvironment(Environment):
+    """ML Experiment Reviewer Environment"""
 
     SUPPORTS_CONCURRENT_SESSIONS = True
+
+    @property
+    def metadata(self):
+        return {
+            "name": "ml-experiment-env",
+            "description": "ML Experiment Reviewer Environment"
+        }
 
     def __init__(self):
         super().__init__()
