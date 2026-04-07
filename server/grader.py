@@ -1,102 +1,76 @@
 # ─── grader.py ───────────────────────────────────────────────
-# Strict, dynamic grader with false alarm penalties. Returns reward 0.0 - 1.0
 
+import re
 from models import EasyAction, MediumAction, HardAction
 
-# ─── Easy Task Grader ────────────────────────────────────────
+def _clamp_score(score: float) -> float:
+    return max(0.01, min(0.99, round(score, 2)))
+
+def _normalize_text(text: str) -> str:
+    text = text.lower().replace("_", " ")
+    text = re.sub(r"[^\w\s]", " ", text)
+    text = text.replace("lr", "learning rate").replace("bs", "batch size")
+    return " ".join(text.split())
 
 def grade_easy(action: EasyAction, correct_answer: str) -> float:
-    reward = 0.0
-    if action.diagnosis.lower() == correct_answer.lower():
-        reward += 0.8
-    if action.reason and len(action.reason.strip()) > 10:
-        reward += 0.2
-    return max(0.0, round(reward, 2))
+    reward = 0.8 if action.diagnosis.lower() == correct_answer.lower() else 0.0
+    if action.reason and len(action.reason.strip()) > 10: reward += 0.2
+    return _clamp_score(reward)
 
+def _score_dynamic(guesses, actuals, sol_guesses, actual_sols, difficulty="medium"):
+    stop_words = {"too", "very", "is", "the", "a", "an", "for", "to", "at", "it", "needs", "be"}
+    config = {
+        "medium": {"threshold": 0.60, "penalty": 0.05},
+        "hard":   {"threshold": 0.85, "penalty": 0.10},
+    }
+    tier = config.get(difficulty, config["medium"])
 
-# ─── Dynamic Grading Helpers ─────────────────────────────────
+    def calc(g_list, a_list):
+        if not a_list: return 1.0 - (len(g_list) * tier["penalty"])
+        matched = 0
+        norm_g = [_normalize_text(g) for g in g_list]
+        combined_g = " ".join(norm_g)
+        g_tokens = set(combined_g.split())
 
-def _score_dynamic(agent_guesses_list: list[str], actual_problems: list[str]) -> float:
-    """
-    Grades by calculating:
-      1. Base Reward = (Correct Matches) / (Total Actual Problems)
-      2. False Alarm Penalty = -0.1 for each guess in agent_guesses_list that matched NO actual problems
-    """
-    if not actual_problems:
-        # 0 actual problems means this is a "good_fit" experiment.
-        # Penalty for hallucinating problems when none exist:
-        penalty = len(agent_guesses_list) * 0.1
-        return max(0.0, 1.0 - penalty)
-
-    found_count = 0
-    matched_problems = set()
-    
-    # 1. Check how many actual problems the agent listed explicitly in its issues array
-    agent_guesses_combined = " ".join(agent_guesses_list).lower()
-    for problem in actual_problems:
-        problem_phrase = problem.replace("_", " ").lower()
-        if problem_phrase in agent_guesses_combined:
-            found_count += 1
-            matched_problems.add(problem)
-            
-    base_reward = found_count / len(actual_problems)
-    
-    # 2. False Alarm Penalty
-    # For every explicit issue the agent listed, if it doesn't vaguely match an actual problem, penalize it.
-    penalty = 0.0
-    for guess in agent_guesses_list:
-        guess_lower = guess.lower()
+        for target in a_list:
+            t_tokens = [t for t in _normalize_text(target).split() if t not in stop_words]
+            if not t_tokens: continue
+            if sum(1 for t in t_tokens if t in g_tokens) / len(t_tokens) >= tier["threshold"]:
+                matched += 1
         
-        is_real_problem = False
-        for problem in actual_problems:
-            if problem.replace("_", " ").lower() in guess_lower:
-                is_real_problem = True
-                break
+        # Penalties: False Alarms (all tiers)
+        false_alarm_penalty = 0.0
+        for g in norm_g:
+            g_t = set(g.split())
+            if not any(sum(1 for t in [tk for tk in _normalize_text(ta).split() if tk not in stop_words] if t in g_t) / len([tk for tk in _normalize_text(ta).split() if tk not in stop_words]) >= tier["threshold"] for ta in a_list if [tk for tk in _normalize_text(ta).split() if tk not in stop_words]):
+                false_alarm_penalty += tier["penalty"]
         
-        if not is_real_problem:
-            penalty += 0.1  # 10% penalty for hallucinating an issue
-            
-    final_score = base_reward - penalty
-    return max(0.0, round(final_score, 2))
+        return (matched / len(a_list)) - false_alarm_penalty
 
-
-# ─── Hard Task Grader (Pure Hyperparameter Tuning) ──────────
-
-def grade_hard(action: MediumAction, correct_answer: list[str]) -> float:
-    actual_problems = correct_answer
-    
-    return _score_dynamic(
-        agent_guesses_list=action.issues_found,
-        actual_problems=actual_problems
-    )
-
-
-# ─── Medium Task Grader (Full Experiment Diagnosis) ──────────
+    i_score = calc(guesses, actuals)
+    s_score = calc(sol_guesses, actual_sols)
+    return _clamp_score(0.7 * i_score + 0.3 * s_score)
 
 def grade_medium(action: HardAction, correct_answer: dict) -> float:
-    actual_problems = []
-    
-    actual_problems.extend(correct_answer.get("hyperparameter_problems", []))
-    actual_problems.extend(correct_answer.get("data_quality_issues", []))
-    actual_problems.extend(correct_answer.get("preprocessing_issues", []))
-    
-    if not correct_answer.get("model_correct", True):
-        actual_problems.append("wrong_model")
-        
+    # Medium is now the Master Audit (using HardAction schema)
     return _score_dynamic(
-        agent_guesses_list=action.issues_found,
-        actual_problems=actual_problems
+        action.issues_found, correct_answer.get("problems", []),
+        action.suggestions, correct_answer.get("solutions", []),
+        difficulty="medium"
     )
 
-
-# ─── Main Grader Function ────────────────────────────────────
+def grade_hard(action: MediumAction, correct_answer: dict) -> float:
+    # Hard is now the Numeric Tuning (using MediumAction schema)
+    return _score_dynamic(
+        action.issues_found, correct_answer.get("problems", []),
+        action.suggestions, correct_answer.get("solutions", []),
+        difficulty="hard"
+    )
 
 def grade(action, correct_answer, difficulty: str) -> float:
-    if difficulty == "easy":
-        return grade_easy(action, correct_answer)
-    elif difficulty == "medium":
-        return grade_medium(action, correct_answer)
-    elif difficulty == "hard":
-        return grade_hard(action, correct_answer)
-    else:
-        return 0.0
+    try:
+        if difficulty == "easy": return grade_easy(action, correct_answer)
+        if difficulty == "medium": return grade_medium(action, correct_answer)
+        if difficulty == "hard": return grade_hard(action, correct_answer)
+        return 0.01 
+    except Exception: return 0.01
