@@ -14,7 +14,7 @@ class EasyAction(Action):
 # ─── Medium Task Action ──────────────────────────────────────
 
 class MediumAction(Action):
-    """Agent's response for Hyperparameter-only tasks (used in Hard tier)"""
+    """Agent's response for Medium Task - Hyperparameter Tuning"""
     diagnosis: str           # Overall diagnosis "overfitting" etc
     issues_found: List[str]  # List of problematic hyperparameters
     suggestions: List[str]   # List of fixes
@@ -23,7 +23,7 @@ class MediumAction(Action):
 # ─── Hard Task Action ────────────────────────────────────────
 
 class HardAction(Action):
-    """Agent's response for Full Experiment Diagnosis (used in Medium tier)"""
+    """Agent's response for Hard Task - Full Experiment Diagnosis"""
     diagnosis: str              # Overall diagnosis
     issues_found: List[str]     # All issues found
     suggestions: List[str]      # All fixes
@@ -54,12 +54,13 @@ class MLAction(Action):
     diagnosis: str
     reason: str
 
-    # Hard (Hyperparameter only) fields
-    issues_found: Optional[List[str]] = None
-    suggestions:  Optional[List[str]] = None
+    # Hard (Hyperparameter only/Numeric Tuning) fields
+    issues_found:  Optional[List[str]] = None
+    suggestions:   Optional[List[str]] = None
+    reason:        Optional[str] = None
 
-    # Medium (Full Diagnostic) fields
-    data_quality:  Optional[str]   = None
-    preprocessing: Optional[str]   = None
-    model_check:   Optional[str]   = None
+    # Medium (Full Diagnostic/Master Audit) fields
+    data_quality:  Optional[str] = None
+    preprocessing: Optional[str] = None
+    model_check:   Optional[str] = None
     overall_score: Optional[float] = None
