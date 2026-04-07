@@ -1,12 +1,11 @@
-# ─── inference.py ────────────────────────────────────────────
-# Runs the LLM against our ML Experiment Reviewer environment
-# and records baseline scores with mandatory [START]/[STEP]/[END] format.
-
-import asyncio
 import os
-import json
 import re
+import json
+import asyncio
 from typing import List, Optional
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from openai import OpenAI
 from client import MLExperimentClient
@@ -117,7 +116,7 @@ Respond in this exact JSON format:
 
 
 def run_medium(env) -> tuple:
-    """Run medium task (full experiment diagnosis). Returns (reward, action_summary, error)."""
+    """Run medium task (full audit + hyperparams). Returns (reward, action_summary, error)."""
     result = env.reset(difficulty="medium")
     obs = result.observation
 
