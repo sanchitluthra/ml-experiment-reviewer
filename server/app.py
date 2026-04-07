@@ -28,7 +28,7 @@ def get_tasks():
             {
                 "name": "easy",
                 "difficulty": "easy",
-                "description": "Detect if experiment is overfitting, underfitting or good fit",
+                "description": "Determine if the model is overfitting, underfitting, good_fit, or stagnant. (Note: A gap of 5% or more indicates overfitting)",
                 "action_schema": {
                     "diagnosis": "string (overfitting/underfitting/good_fit)",
                     "reason":    "string (why you made this diagnosis)"
@@ -37,7 +37,7 @@ def get_tasks():
             {
                 "name": "medium",
                 "difficulty": "medium",
-                "description": "Full experiment diagnosis including model, data quality and preprocessing",
+                "description": "Full logic audit (architecture + data quality) plus hyperparameter bugs",
                 "action_schema": {
                     "diagnosis":     "string (overall diagnosis)",
                     "issues_found":  "list of strings (all issues found)",
@@ -88,7 +88,7 @@ def get_baseline():
             score = grade(action, exp["correct_answer"], "easy")
             easy_scores.append(score)
 
-        # Medium baseline (full diagnostic)
+        # Medium baseline (Audit)
         medium_scores = []
         for _ in range(10):
             exp    = generate_medium_experiment()
@@ -105,7 +105,7 @@ def get_baseline():
             score = grade(action, exp["correct_answer"], "medium")
             medium_scores.append(score)
 
-        # Hard baseline (hyperparams only)
+        # Hard baseline (Numeric)
         hard_scores = []
         for _ in range(10):
             exp    = generate_hard_experiment()
@@ -119,10 +119,10 @@ def get_baseline():
             hard_scores.append(score)
 
         return {
-            "baseline_scores": {
-                "easy":   round(sum(easy_scores)   / len(easy_scores),   2),
-                "medium": round(sum(medium_scores) / len(medium_scores), 2),
-                "hard":   round(sum(hard_scores)   / len(hard_scores),   2),
+            "baselines": {
+                "easy":   max(0.01, min(0.99, round(sum(easy_scores)   / len(easy_scores),   2))),
+                "medium": max(0.01, min(0.99, round(sum(medium_scores) / len(medium_scores), 2))),
+                "hard":   max(0.01, min(0.99, round(sum(hard_scores)   / len(hard_scores),   2))),
             },
             "description": "Random baseline scores averaged over 10 episodes per task"
         }
